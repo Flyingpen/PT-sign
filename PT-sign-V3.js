@@ -137,7 +137,7 @@ async function sign(siteKey) {
   for (let i = 1; i <= RETRY; i++) {
     if (WAF_BYPASS) {
       // WAF 绕过策略：请求前休眠随机 2~5 秒
-      let delay = Math.floor(2000 + Math.random() * 3000);
+      let delay = Math.floor(5000 + Math.random() * 30000);
       log(`正在悄悄等待 ${delay / 1000} 秒，避开雷池小雷达...`);
       await new Promise(r => setTimeout(r, delay));
       // 可随机 content-type
