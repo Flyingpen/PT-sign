@@ -27,7 +27,7 @@ npm install axios https-proxy-agent
 ### 2. 创建脚本
 1. 登录青龙面板
 2. 进入「脚本管理」→「新建脚本」
-3. 将 `pt_sign.txt` 内容粘贴到脚本编辑器
+3. 将 `PT-sign-V3.js` 内容粘贴到脚本编辑器
 4. 保存脚本（建议命名为 `pt_sign.js`）
 
 ### 3. 配置环境变量
