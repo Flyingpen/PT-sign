@@ -1,135 +1,167 @@
-# 🏴‍☠️ PT-sign-V3.js  
-> 让签到像海盗抢滩一样——稳、准、还带点骚！
 
----
 
-## 🎬 前情提要
-你是否也每天：
+# PT 签到 v3 趣味防护增强版
 
-- 打开十几个 PT 站 → 登录 → 找到签到按钮 → 点击 → 关闭标签页  
-- 日复一日，手指抽搐，眼神涣散，怀疑人生
+一个专为 PT 站点设计的自动化签到脚本，部署于青龙面板，具备趣味防护机制和多种推送方式。
 
-现在，把这套「流水线」打包进 **青龙面板**，让脚本替你打工！  
-PT-sign-V3.js 用 200 行不到的代码，给你 **全自动、可并发、带通知、还能看热闹** 的签到体验。
+## 🌟 功能特点
 
----
+- 🚀 **多站点支持**：同时管理多个 PT 站点的签到任务
+- 🛡️ **趣味防护机制**：
+  - 随机 User-Agent 模拟不同设备
+  - 随机 IP 伪造（X-Forwarded-For）
+  - WAF 绕过策略（随机延迟 + 请求头伪装）
+- 📢 **多渠道推送**：支持飞书、Bark、Server酱、钉钉、微信和自定义推送
+- 🔄 **智能重试**：可配置重试次数，提高签到成功率
+- 🌐 **代理支持**：支持 HTTP/HTTPS 代理访问
+- 📋 **详细日志**：趣味化日志输出 + 签到结果汇总推送
 
-## 🧰 功能亮点
+## 📦 部署流程
 
-| 特性 | 说明 | emoji |
-|---|---|---|
-| **多站并发** | Promise.all 一把梭，签到速度取决于你家网速 | ⚡ |
-| **失败重试** | 站点抽风？自动三连重试，不抛弃不放弃 | 🔄 |
-| **花式通知** | 支持 Server 酱、PushPlus、Telegram、钉钉、Bark…… | 📢 |
-| **日志即八卦** | 签到成功/失败/奖励金币，全写进青龙日志，吃瓜必备 | 🍉 |
-| **极简配置** | 一条 cookie 一个站，复制粘贴即可 | 🍔 |
-
----
-
-## 📦 安装三步曲
-
-### 1️⃣ 把脚本塞进青龙
+### 1. 环境准备
+确保已安装以下依赖：
 ```bash
-# SSH 进青龙容器
-docker exec -it qinglong bash
-
-# 下载脚本
-curl -fsSL https://raw.githubusercontent.com/Flyingpen/PT-sign/77b5d55bc2fd54acc281b0014928f032814e70f0/PT-sign-V3.js \
-  -o /ql/scripts/PT-sign-V3.js
+npm install axios https-proxy-agent
 ```
 
-### 2️⃣ 安装依赖（一分钟搞定）
+### 2. 创建脚本
+1. 登录青龙面板
+2. 进入「脚本管理」→「新建脚本」
+3. 将 `pt_sign.txt` 内容粘贴到脚本编辑器
+4. 保存脚本（建议命名为 `pt_sign.js`）
+
+### 3. 配置环境变量
+在「环境变量」中添加以下配置（详见下方环境变量说明）
+
+### 4. 运行脚本
+1. 在脚本列表中选择刚创建的脚本
+2. 点击「运行」或设置定时任务（建议每天 08:00 执行）
+
+## ⚙️ 环境变量设置
+
+| 变量名 | 必填 | 说明 | 示例 |
+|--------|------|------|------|
+| `PT_WEBHOOK_URL` | ✅ | 推送地址 | `https://open.feishu.cn/open-apis/bot/v2/hook/xxx` |
+| `PT_WEBHOOK_TYPE` | ❌ | 推送类型（默认 custom） | `feishu`/`bark`/`sct`/`ding`/`wx`/`custom` |
+| `PT_PROXY` | ❌ | 代理地址 | `http://127.0.0.1:7890` |
+| `PT_RETRY` | ❌ | 重试次数（默认 3） | `5` |
+| `PT_WAF_BYPASS` | ❌ | 开启 WAF 绕过（任意值） | `1` |
+| `PT_EXTRA_HEADERS` | ❌ | 自定义请求头 | `x-token:abc123|x-secret:456` |
+| `PT_SITE_<站点>_CK` | ✅ | 站点 Cookie | `PT_SITE_HDKYL_CK=xxx` |
+
+### 推送配置示例
 ```bash
-cd /ql/scripts
-pnpm add axios https-proxy-agent
-# 没装 pnpm？npm i -g pnpm 先！
+# 飞书机器人
+PT_WEBHOOK_TYPE=feishu
+PT_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+
+# Bark 推送
+PT_WEBHOOK_TYPE=bark
+PT_WEBHOOK_URL=https://api.day.app/yourkey/
+
+# Server酱
+PT_WEBHOOK_TYPE=sct
+PT_WEBHOOK_URL=https://sctapi.ftqq.com/SCTxxx.send
 ```
 
-### 3️⃣ 配置环境变量
-在青龙面板 → 配置文件 → `extra.sh` 末尾追加：
+## 🌐 站点管理
 
-```bash
-# 例：配置 3 个站
-export PT_SITE_1="hdchina:你的cookie1"
-export PT_SITE_2="hdcity:你的cookie2"
-export PT_SITE_3="ssd:你的cookie3"
-
-# 通知渠道（任选其一）
-export PT_SIGN_NOTIFY="serverChan"     # 或 pushplus / telegram / dingtalk / bark
-export PT_SIGN_SCKEY="SCTxxxxx"        # Server 酱 SendKey
-```
-
-> 想配更多站？`PT_SITE_4`、`PT_SITE_5`… 一直往下加，脚本会自动识别。
-
----
-
-## 🍪 如何抓 Cookie（以 Chrome 为例）
-
-1. 登录 PT 站  
-2. F12 → Application → Cookies → 复制整段 `Cookie:` 请求头  
-   例：  
+### 添加新站点
+1. **修改脚本中的 `sites` 对象**：
+   ```javascript
+   const sites = {
+     // 已有站点...
+     newpt: {
+       host: 'newpt.com',
+       url: 'https://newpt.com/attendance.php'
+     }
+   };
    ```
-   c_lang_folder=cn; c_secure_uid=MTIzNDU2; c_secure_pass=abcdefg...
+2. **添加对应环境变量**：
+   ```bash
+   PT_SITE_NEWPT_CK=your_cookie_here
    ```
-3. 按 `站点名:完整cookie` 的格式填到环境变量即可。
 
----
+### 删除站点
+1. 从 `sites` 对象中移除站点配置
+2. 删除对应的环境变量
 
-## 🕹️ 手动跑一次试试
+### Cookie 获取方法
+1. 浏览器登录目标站点
+2. 按 F12 打开开发者工具
+3. 刷新页面 → Network → 找到主页请求
+4. 复制请求头中的 `Cookie` 字段值
 
+## 🔧 高级配置
+
+### WAF 绕过机制
+当站点启用 WAF 防护时，可开启此功能：
 ```bash
-cd /ql/scripts
-node PT-sign-V3.js
+PT_WAF_BYPASS=1  # 开启后会增加随机延迟和请求头伪装
 ```
 
-看到日志里出现：
-
-```
-[HDChina] ✅ 签到成功，获得 88 魔力值
-[HDCity] ✅ 签到成功，连续 7 天！
-[SSD] ❌ 今天已签到，别卷了
+### 自定义请求头
+```bash
+PT_EXTRA_HEADERS=x-token:abc123|x-secret:456
 ```
 
-就说明脚本在认真打工了！
+### 代理设置
+```bash
+PT_PROXY=http://127.0.0.1:7890
+```
+
+## 📋 运行日志示例
+```
+[小可爱签到机] 可爱的小机器人上线啦，开始为你自动签到！
+[小可爱签到机] 当前未使用代理，直接访问站点。
+[小可爱签到机] hdkyl：准备开始签到咯！
+[小可爱签到机] 正在悄悄等待 8.3 秒，避开雷池小雷达...
+[小可爱签到机] 恭喜你，签到成功！撒花~
+[小可爱签到机] carpt：准备开始签到咯！
+[小可爱签到机] 今天已经打过卡啦，摸摸头~
+
+===== 签到汇总 =====
+hdkyl: ✅ 签到成功
+carpt: ✅ 签到成功
+```
+
+## ⚠️ 注意事项
+
+1. **Cookie 安全**：
+   - Cookie 包含敏感信息，请勿泄露
+   - 定期更新 Cookie（建议每月更新一次）
+
+2. **站点兼容性**：
+   - 目前仅支持使用 `attendance.php` 的站点
+   - 需要站点有 `formhash` 参数
+
+3. **推送限制**：
+   - 飞书机器人每分钟最多发送 20 条消息
+   - Bark 免费版每天有推送次数限制
+
+4. **WAF 绕过**：
+   - 开启后会显著增加签到时间（随机延迟 2-35 秒）
+   - 仅在遇到 WAF 拦截时开启
+
+## 🐛 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 签到失败：Cookie 未配置 | 检查环境变量名是否正确（大写站点名） |
+| 签到失败：Cookie 失效 | 重新获取站点 Cookie |
+| 签到失败：找不到 formhash | 站点可能已更新，需要适配脚本 |
+| 推送失败 | 检查 `PT_WEBHOOK_URL` 是否正确配置 |
+| 签到超时 | 检查网络连接或增加 `timeout` 值 |
+
+## 📝 更新日志
+
+### v3.0 趣味防护增强版
+- 新增随机 UA/IP 生成机制
+- 新增 WAF 绕过策略
+- 优化推送格式和错误提示
+- 增加趣味化日志输出
+- 支持自定义请求头
 
 ---
 
-## ⏰ 定时任务（青龙面板）
-
-- 名称：`PT 每日签到`
-- 命令：`node /ql/scripts/PT-sign-V3.js`
-- 定时：`0 9 * * *`  （每天 9 点，避开高峰）
-
----
-
-## 🛠️ 高阶玩法
-
-| 需求 | 做法 |
-|---|---|
-| **代理访问** | 在脚本最上方加两行：<br>`process.env.HTTP_PROXY="http://127.0.0.1:7890"`<br>`process.env.HTTPS_PROXY="http://127.0.0.1:7890"` |
-| **自定义重试次数** | 环境变量追加 `export PT_SIGN_RETRY=5` |
-| **日志分级** | `export PT_SIGN_LOG_LEVEL=debug` （默认 info） |
-
----
-
-## 🐞 常见问题 FAQ
-
-Q1：**cookie 失效怎么办？**  
-> 重新抓 cookie，覆盖环境变量，重启青龙即可。
-
-Q2：**通知收不到？**  
-> 检查 `PT_SIGN_NOTIFY` 拼写是否正确，以及对应 token 是否有效。
-
-Q3：**不想全部站点跑？**  
-> 临时禁用某站：把环境变量改个名，如 `PT_SITE_2_DISABLED="hdcity:..."`
-
----
-
-## 🏁 结尾彩蛋
-如果脚本帮到了你，不妨去 GitHub 点个小 ⭐，或者在博客记录折腾过程——  
-**打工不止眼前的签到，还有 Star 和远方！**
-
----
-
-> 代码开源，快乐无价。  
-> 祝各位永远不断签、永不被 HR！
+> 💡 **提示**：首次运行建议手动执行一次，检查日志输出是否正常，再设置定时任务。
