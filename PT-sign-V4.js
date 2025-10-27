@@ -1,5 +1,5 @@
 /**
- * PT 签到 v3 趣味防护增强版
+ * PT 签到 v4 趣味防护增强版
  * 环境变量：
  *   PT_SITE_<SITE>_CK     必须，对应站点 cookie
  *   PT_WEBHOOK_URL        必须，推送地址
