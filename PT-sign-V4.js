@@ -80,13 +80,48 @@ function randomHeaders(siteKey) {
 }
 
 const sites = {
-hdkyl: {
-    host: 'www.ptlover.cc',
-    url: 'https://www.ptlover.cc/attendance.php'
+  hdkyl: {
+    host: 'www.hdkyl.in',
+    url: 'https://www.hdkyl.in/attendance.php',
+    // 站点特定的解析规则
+    parseReward: (html) => {
+      // 示例匹配规则：连续签到3天，获得100魔力值
+      const continuousMatch = html.match(/连续签到(\d+)天/);
+      const rewardMatch = html.match(/获得(\d+)([^\s<]+)/);
+      
+      return {
+        continuousDays: continuousMatch ? continuousMatch[1] : null,
+        reward: rewardMatch ? `${rewardMatch[1]}${rewardMatch[2]}` : null
+      };
+    }
   },
   carpt: {
     host: 'carpt.net',
-    url: 'https://carpt.net/attendance.php'
+    url: 'https://carpt.net/attendance.php',
+    parseReward: (html) => {
+      // 示例匹配规则：已连续签到5天，奖励：上传量 10GB
+      const continuousMatch = html.match(/已连续签到(\d+)天/);
+      const rewardMatch = html.match(/奖励[：:]\s*([^\s<]+)/);
+      
+      return {
+        continuousDays: continuousMatch ? continuousMatch[1] : null,
+        reward: rewardMatch ? rewardMatch[1] : null
+      };
+    }
+  },
+  afun: {
+    host: 'www.ptlover.cc',
+    url: 'https://www.ptlover.cc/attendance.php',
+    parseReward: (html) => {
+      // 示例匹配规则：已连续签到5天，奖励：上传量 10GB
+      const continuousMatch = html.match(/已连续签到(\d+)天/);
+      const rewardMatch = html.match(/奖励[：:]\s*([^\s<]+)/);
+      
+      return {
+        continuousDays: continuousMatch ? continuousMatch[1] : null,
+        reward: rewardMatch ? rewardMatch[1] : null
+      };
+    }
   }
 };
 
@@ -155,8 +190,19 @@ async function sign(siteKey) {
       }
 
       if (/今日已签到|签到已得|already signed/i.test(html)) {
-        log(`今天已经打过卡啦，摸摸头~`);
-        return { site: siteKey, ok: true, reason: '今日已签到' };
+        // 尝试解析连续签到信息
+        const rewardInfo = site.parseReward ? site.parseReward(html) : {};
+        const continuousDays = rewardInfo.continuousDays || '未知';
+        const reward = rewardInfo.reward || '未知';
+        
+        log(`今天已经打过卡啦，摸摸头~（连续签到：${continuousDays}天，奖励：${reward}）`);
+        return { 
+          site: siteKey, 
+          ok: true, 
+          reason: '今日已签到',
+          continuousDays,
+          reward
+        };
       }
 
       const m = html.match(/name="formhash"\s+value="([a-f0-9]{32})"/i);
@@ -177,16 +223,27 @@ async function sign(siteKey) {
       const { status: st2, data: d2 } = await http.post(site.url, params.toString(), { headers: postHeaders });
 
       if (d2.includes('成功') || d2.includes('success') || st2 === 302) {
-        log(`恭喜你，签到成功！撒花~`);
-        return { site: siteKey, ok: true， reason: '签到成功' };
+        // 尝试解析奖励信息
+        const rewardInfo = site.parseReward ? site.parseReward(d2) : {};
+        const continuousDays = rewardInfo.continuousDays || '未知';
+        const reward = rewardInfo.reward || '未知';
+        
+        log(`恭喜你，签到成功！连续签到：${continuousDays}天，获得奖励：${reward}！撒花~`);
+        return { 
+          site: siteKey, 
+          ok: true, 
+          reason: '签到成功',
+          continuousDays,
+          reward
+        };
       }
       throw new Error(`签到接口返回异常：${d2.slice(0, 150)}`);
     } catch (err) {
-      error(`[${siteKey}] 第 ${i} 次尝试翻车了：${err。message}【原因：${getZhReason(err。message)}】`);
+      error(`[${siteKey}] 第 ${i} 次尝试翻车了：${err.message}【原因：${getZhReason(err.message)}】`);
       if (i === RETRY) {
-        const msg = `${siteKey}: ❌ ${err.message}【原因：${getZhReason(err.message)}】`;
-        await push('PT 签到失败'， msg);
-        return { site: siteKey， ok: false， reason: err。message };
+        const msg = `${siteKey}: ❌ ${err。message}【原因：${getZhReason(err。message)}】`;
+        await push('PT 签到失败', msg);
+        return { site: siteKey, ok: false， reason: err。message };
       }
       await new Promise(r => setTimeout(r， 3000));
     }
@@ -195,11 +252,11 @@ async function sign(siteKey) {
 
 // BUG 原因中文解释
 function getZhReason(msg) {
-  if (/Cookie 失效/.test(msg)) return '你的 Cookie 过期啦，需要重新获取';
+  if (/Cookie 失效/。test(msg)) return '你的 Cookie 过期啦，需要重新获取';
   if (/formhash/。test(msg)) return '网站页面结构变了，脚本需要升级';
   if (/接口返回异常/.test(msg)) return '服务器返回内容不对，可能网站升级或维护中';
   if (/Cookie 未配置/.test(msg)) return '没有填写站点 Cookie';
-  if (/今日已签到/.test(msg)) return '今日已签到，无需重复打卡';
+  if (/今日已签到/。test(msg)) return '今日已签到，无需重复打卡';
   if (/签到成功/.test(msg)) return '';
   return '未知原因，请查看日志详细信息';
 }
@@ -215,14 +272,19 @@ function getZhReason(msg) {
   const results = [];
   for (const key of Object.keys(sites)) results.push(await sign(key));
 
-  // 只有失败才显示原因，成功不显示多余原因
-  const summary = results.map(r =>
-    r.ok
-      ? `${r.site}: ✅ 签到成功`
-      : `${r.site}: ❌ 签到失败（原因：${getZhReason(r.reason)}）`
-  ).join('\n');
-  log('\n===== 签到汇总 =====\n' + summary);
+  // 生成包含奖励信息的汇总报告
+  const summary = results.map(r => {
+    if (r.ok) {
+      let msg = `${r.site}: ✅ ${r.reason}`;
+      if (r.continuousDays) msg += `\n  🎯 连续签到：${r.continuousDays}天`;
+      if (r.reward) msg += `\n  🎁 获得奖励：${r.reward}`;
+      return msg;
+    } else {
+      return `${r.site}: ❌ 签到失败（原因：${getZhReason(r.reason)}）`;
+    }
+  }).join('\n\n');
 
+  log('\n===== 签到汇总 =====\n' + summary);
   await push('PT 签到结果', summary);
   log('全部任务完成，准备打个盹，明天见！');
 })();
